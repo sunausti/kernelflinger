@@ -59,6 +59,7 @@
 #include "timer.h"
 #include "android.h"
 #include "libavb_ab/libavb_ab.h"
+#include "intel_ec.h"
 
 /* size of "INFO" "OKAY" or "FAIL" */
 #define CODE_LENGTH 4
@@ -843,6 +844,18 @@ static void cmd_flash(INTN argc, CHAR8 **argv)
 	}
 
 	info(L"Flashing %s ...", label);
+	debug(L"dl.data = %x, dl.size = %u", dl.data, dl.size);
+	if (!StrCmp(label, L"ec")) {
+		info(L"Flash done.");
+		FreePool(label);
+		if (update_ec(dl.data, dl.size)) {
+			fastboot_fail("Flash EC failure");
+			return;
+		}
+		fastboot_okay("");
+		info(L"Plese reset the power to make new EC FW take effect!");
+		return;
+	}
 
 	ret = flash(dl.data, dl.size, label);
 	FreePool(label);
