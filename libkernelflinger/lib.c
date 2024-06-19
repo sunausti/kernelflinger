@@ -1004,17 +1004,22 @@ BOOLEAN file_exists(IN EFI_HANDLE disk, IN const CHAR16 *path)
         BOOLEAN exists = TRUE;
 
         root_dir = LibOpenRoot(disk);
-        if (!root_dir)
+        if (!root_dir) {
+		        debug(L"LibOpenRoot Fail");
                 return FALSE;
+		}
 
         ret = uefi_call_wrapper(root_dir->Open, 5, root_dir, &file,
                         (CHAR16 *)path, EFI_FILE_MODE_READ, 0);
         if (EFI_ERROR(ret)) {
+		        debug(L"Open File Fail");
                 exists = FALSE;
         } else {
+		        debug(L"Close File");
                 uefi_call_wrapper(file->Close, 1, file);
         }
 
+		 debug(L"Close root");
         uefi_call_wrapper(root_dir->Close, 1, root_dir);
         return exists;
 }

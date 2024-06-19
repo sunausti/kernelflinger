@@ -128,17 +128,23 @@ static EFI_STATUS read_gpt_header(struct gpt_disk *disk, UINT64 offset)
 			   offset);
 		return ret;
 	}
-
+	CHAR8 * header =(CHAR8 *)&disk->gpt_hd;
+	debug(L"GPT Header:%x,%x,%x,%x", header[0],
+header[1],header[2],header[3]);
 	saved_crc = disk->gpt_hd.header_crc32;
 	disk->gpt_hd.header_crc32 = 0;
 	ret = calculate_crc32((void *)&disk->gpt_hd, sizeof(disk->gpt_hd), &crc);
 	disk->gpt_hd.header_crc32 = saved_crc;
 	if (EFI_ERROR(ret))
+    {
+        debug(L"crc calc error");
 		return ret;
-
+    }
 	if (crc != disk->gpt_hd.header_crc32)
+    {
+        debug(L"crc cmp error");
 		return EFI_COMPROMISED_DATA;
-
+    }
 	return EFI_SUCCESS;
 }
 

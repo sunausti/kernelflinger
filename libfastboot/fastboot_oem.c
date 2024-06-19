@@ -58,7 +58,7 @@
 #include "security.h"
 #include "vars.h"
 #include "security_interface.h"
-
+#include "fatfs.h"
 #define OFF_MODE_CHARGE		"off-mode-charge"
 #define CRASH_EVENT_MENU	"crash-event-menu"
 #define SLOT_FALLBACK		"slot-fallback"
@@ -262,6 +262,30 @@ static struct oem_hash {
 	{ VENDOR_LABEL,		get_fs_hash,		FALSE }
 #endif
 };
+static void cmd_oem_dumphex(INTN argc, CHAR8 **argv)
+{
+	unsigned long offset;
+	char *endptr;
+	CHAR8 sector[512];
+	if (argc != 2) {
+			fastboot_fail("command is wrong");
+			return;
+	}
+	offset = strtoul((char *)argv[1], &endptr, 16);
+	if (*endptr != '\0' || offset > (UINT16)-1) {
+		fastboot_fail("Invalid value");
+		return;
+	}
+
+    if(EFI_SUCCESS != fat_readdisk(offset, 512, sector))
+	{
+	    debug(L"read vbr failed");
+	} else {
+        debug_hex(offset, sector, 512);
+	}
+
+	fastboot_okay("");
+}
 
 static void cmd_oem_gethashes(INTN argc, CHAR8 **argv)
 {
@@ -736,6 +760,7 @@ static struct fastboot_cmd COMMANDS[] = {
 	{ "erase-efivars",		LOCKED,		cmd_oem_erase_efivars },
 #endif
 	{ "get-hashes",			LOCKED,		cmd_oem_gethashes  },
+	{ "dumphex",			UNLOCKED,		cmd_oem_dumphex  },
 	{ "get-provisioning-logs",	LOCKED,		cmd_oem_get_logs },
 #ifdef USE_TPM
 #ifndef USER

@@ -69,6 +69,7 @@
 #include "uefi_utils.h"
 #include "security_interface.h"
 #include "security_efi.h"
+#include "fatfs.h"
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
@@ -1199,6 +1200,8 @@ static VOID boot_error(enum ux_error_code error_code , UINT8 boot_state,
 		halt_system();
 }
 
+CHAR8 vbr_sector[512];
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 {
 	EFI_STATUS ret;
@@ -1239,8 +1242,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		if (EFI_ERROR(ret))
 			error(L"Failed to set boot device");
 	}
-
+	debug(L"check if file exists");
+    if(!file_exists(g_disk_device,L"\\boot\\sbl_fb")) {
+	    debug(L"not find sbl_fb");
+	}
+#if 1 
 	// Set the boot device now
+	debug(L"get boot device");
 	if (!get_boot_device_handle()) {
 		if (!get_boot_device()) {
 			// Get boot device failed
@@ -1248,15 +1256,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			return EFI_NO_MEDIA;
 		}
 	}
-
 #ifndef USE_SBL
+
+	debug(L"check capsule");
 	uefi_bios_update_capsule(g_disk_device, FWUPDATE_FILE);
 
 	uefi_check_upgrade(g_loaded_image, BOOTLOADER_LABEL, KFUPDATE_FILE,
 			BOOTLOADER_FILE, BOOTLOADER_FILE_BAK, KFSELF_FILE, KFBACKUP_FILE);
 #endif
-
+#endif //#if 0
 #ifdef USE_IVSHMEM
+	debug(L"ivshmem init");
 	ret = ivshmem_init();
 	if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
 		efi_perror(ret, L"Failed to init ivshmem, enter fastboot mode");
@@ -1274,6 +1284,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	}
 #endif
 
+	debug(L"check lock");
 	need_lock = device_need_locked();
 
 #ifndef USER
@@ -1288,17 +1299,31 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		set_current_state(LOCKED);
 #endif
 
+	debug(L"device security");
 	ret = set_device_security_info(NULL);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to init security info, enter fastboot mode");
 		boot_target = FASTBOOT;
 	}
 
+	debug(L"slot");
 	ret = slot_init();
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Slot management initialization failed");
 		return ret;
 	}
+
+    if(fat_init() != EFI_SUCCESS)
+	{
+	    debug(L"init fat system failed");
+	}
+    if(EFI_SUCCESS != fat_readdisk(0, 512, vbr_sector))
+	{
+	    debug(L"read vbr failed");
+	} else {
+        debug_hex(0, vbr_sector,512);
+	}
+
 
 	/* The code is only availble for fb4sbl.elf image which is used
 	 * as ELK file in non efi boot. It will force bootloader enter
