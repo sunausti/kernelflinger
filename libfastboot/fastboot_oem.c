@@ -45,7 +45,6 @@
 #include "fastboot_ui.h"
 #include "gpt.h"
 #include "authenticated_action.h"
-
 #include "fastboot_oem.h"
 #include "fastboot_flashing.h"
 #include "intel_variables.h"
@@ -59,6 +58,7 @@
 #include "vars.h"
 #include "security_interface.h"
 #include "fatfs.h"
+#include <IoLib.h>
 #define OFF_MODE_CHARGE		"off-mode-charge"
 #define CRASH_EVENT_MENU	"crash-event-menu"
 #define SLOT_FALLBACK		"slot-fallback"
@@ -130,6 +130,48 @@ static void cmd_oem_crash_event_menu(INTN argc, CHAR8 **argv)
 		fastboot_fail("Failed to publish OEM variables");
 	else
 		fastboot_okay("");
+}
+UINT32
+IoRead32 (
+  IN      UINTN                     Port
+  )
+{
+  UINT32   Data;
+
+  __asm__ __volatile__ ("inl %w1,%0" : "=a" (Data) : "d" ((UINT16)Port));
+
+  return Data;
+}
+
+UINT32
+IoWrite32 (
+  IN      UINTN                     Port,
+  IN      UINT32                    Value
+  )
+{
+    __asm__ __volatile__ ("outl %0,%w1" : : "a" (Value), "d" ((UINT16)Port));
+    return Value;
+}
+static void cmd_oem_fwupdate(INTN argc, CHAR8 **argv){
+
+	UINT32 wdt_ctl = 0;
+    UINT32 ret;
+	if (argc != 1) {
+		fastboot_fail("Invalid parameter");
+		return;
+	}
+    debug(L"start %s", argv[0]);
+	wdt_ctl = IoRead32(R_ACPI_IO_OC_WDT_CTL);
+    debug(L"ioread: %x",wdt_ctl);
+	wdt_ctl |= 0x00010000;
+	ret = IoWrite32(R_ACPI_IO_OC_WDT_CTL,wdt_ctl);
+	if (ret != wdt_ctl) {
+        debug(L"write WDT Control error");
+		fastboot_fail("write WDT(%x) Control %x",R_ACPI_IO_OC_WDT_CTL, ret);
+		return;
+	}
+    debug(L"update wdt_ctl: %x",wdt_ctl);
+	fastboot_okay("");
 }
 
 static void cmd_oem_setvar(INTN argc, CHAR8 **argv)
@@ -750,7 +792,7 @@ static struct fastboot_cmd COMMANDS[] = {
 	{ "setvar",			UNLOCKED,	cmd_oem_setvar  },
 	{ "garbage-disk",		UNLOCKED,	cmd_oem_garbage_disk  },
 	{ "reboot",			LOCKED,		cmd_oem_reboot  },
-	{ "fw-update",			UNLOCKED,	cmd_oem_fw_update  },
+	{ "fw-update",			UNLOCKED,	cmd_oem_fwupdate  },
 	{ "set-storage",		LOCKED,		cmd_oem_set_storage  },
 #ifndef USER
 	{ "reprovision",		LOCKED,		cmd_oem_reprovision  },

@@ -34,7 +34,7 @@
 #include <efi.h>
 #include <efiapi.h>
 #include <efilib.h>
-
+#include <IoLib.h>
 #include "openssl_support.h"
 
 #include <openssl/sha.h>
@@ -1323,8 +1323,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	} else {
         debug_hex(0, vbr_sector,512);
 	}
-
-
+    debug(L"start read WDT Control");
+    debug(L"%x",MmioRead32(0x1854));
+    debug(L"end read WDT Control");
 	/* The code is only availble for fb4sbl.elf image which is used
 	 * as ELK file in non efi boot. It will force bootloader enter
 	 * into fastboot mode.
