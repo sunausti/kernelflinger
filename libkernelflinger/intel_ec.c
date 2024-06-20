@@ -17,6 +17,7 @@
 #define SPICmd_1KSectorErase   0xD7
 #define SPICmd_AAIBytePro      0xAF
 #define SPICmd_AAIWordPro      0xAD
+#define SPICmd_VERSION         0x80
 
 #define PM_OBF                 0x01
 #define PM_IBF                 0x02
@@ -412,11 +413,36 @@ UINT8 Program_Flash_Verify(void)
 	return(TRUE);
 }
 
+static void Send_cmd_by_PM_port(UINT8 Cmd, UINT8 Port)
+{
+	Wait_PM_IBE();
+	outb(Cmd, Port);
+	Wait_PM_IBE();
+}
+
+UINT8 get_ec_sub_ver(UINT8 Port)
+{
+	Send_cmd_by_PM_port(SPICmd_VERSION, PM_CMD_PORT66);
+	Send_cmd_by_PM_port(Port, PM_DATA_PORT62);
+
+	return Read_data_from_PM();
+}
+
+void output_ec_version(void)
+{
+	info(L"Main version: %x", get_ec_sub_ver(0x0));
+	info(L"Sub  version: %x", get_ec_sub_ver(0x1));
+	info(L"Test version: %x", get_ec_sub_ver(0x2));
+}
+
 int update_ec(void *data, uint32_t len)
 {
 	int retries = 5;
 
 	debug(L"Update EC start\n");
+
+	debug(L"Get current EC version");
+	output_ec_version();
 
 	if (!data) {
 		error(L"EC data is NULL");
@@ -462,10 +488,11 @@ int update_ec(void *data, uint32_t len)
 	}
 
 end:
-	follow_mode(_Exitfollow_mode);
 	pause_us(30000);
 	Send_cmd_by_PM(_EXIT_flash_mode);
 
+	debug(L"EC version after flashing\n");
+	output_ec_version();
 	debug(L"Update EC Done\n");
 
 	return 0;
