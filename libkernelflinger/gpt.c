@@ -114,7 +114,7 @@ static EFI_STATUS set_header_crc32(struct gpt_header *gh)
 	gh->header_crc32 = crc;
 	return ret;
 }
-
+CHAR8 gpt_again[512];
 static EFI_STATUS read_gpt_header(struct gpt_disk *disk, UINT64 offset)
 {
 	EFI_STATUS ret;
@@ -129,8 +129,7 @@ static EFI_STATUS read_gpt_header(struct gpt_disk *disk, UINT64 offset)
 		return ret;
 	}
 	CHAR8 * header =(CHAR8 *)&disk->gpt_hd;
-	debug(L"GPT Header:%x,%x,%x,%x", header[0],
-header[1],header[2],header[3]);
+	debug(L"GPT Header(%x):%x,%x,%x,%x",offset,header[0],header[1],header[2],header[3]);
 	saved_crc = disk->gpt_hd.header_crc32;
 	disk->gpt_hd.header_crc32 = 0;
 	ret = calculate_crc32((void *)&disk->gpt_hd, sizeof(disk->gpt_hd), &crc);
@@ -145,6 +144,14 @@ header[1],header[2],header[3]);
         debug(L"crc cmp error");
 		return EFI_COMPROMISED_DATA;
     }
+    CHAR8 * data= header;
+	UINT16 i;
+	for(i = 0; i < 64;i++) {
+	    debug(L"%x   %x,%x,%x,%x,%x,%x,%x,%x",i*8,data[i*8],
+            data[i*8+1],data[i*8+2],data[i*8+3],data[i*8+4],
+            data[i*8+5],data[i*8+6],data[i*8+7]);
+	}
+
 	return EFI_SUCCESS;
 }
 

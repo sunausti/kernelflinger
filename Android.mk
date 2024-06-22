@@ -275,8 +275,10 @@ LOCAL_STATIC_LIBRARIES += libavb_kernelflinger-$(TARGET_BUILD_VARIANT)
 
 LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger) \
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger/fatfs/include) \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport) \
 	$(addprefix $(LOCAL_PATH)/,libxbc)
+
 include $(BUILD_EFI_EXECUTABLE)  # For kernelflinger-$(TARGET_BUILD_VARIANT)
 
 
@@ -300,6 +302,7 @@ LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,libfastboot) \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport) \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger) \
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger/fatfs/include) \
 	$(addprefix $(LOCAL_PATH)/,libxbc)
 
 kfins_intermediates := $(call intermediates-dir-for,EFI,kernelflingerins)
@@ -354,7 +357,6 @@ LOCAL_MODULE_STEM := kfld
 LOCAL_C_INCLUDES += $(addprefix $(LOCAL_PATH)/,avb)
 LOCAL_C_INCLUDES += $(addprefix $(LOCAL_PATH)/,avb/libavb)
 LOCAL_C_INCLUDES += $(addprefix $(LOCAL_PATH)/,avb/libavb_ab)
-
 ifeq ($(TARGET_UEFI_ARCH),x86_64)
     ELF_OUTPUT := elf64-x86-64
 else
@@ -375,6 +377,7 @@ LOCAL_CFLAGS := $(SHARED_CFLAGS)
 ifeq ($(KERNELFLINGER_DISABLE_DEBUG_PRINT),true)
     LOCAL_CFLAGS += -D__DISABLE_DEBUG_PRINT
 endif
+
 
 LOCAL_STATIC_LIBRARIES += \
 	libfastboot-$(TARGET_BUILD_VARIANT) \
@@ -480,6 +483,9 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
 LOCAL_C_INCLUDES += \
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger/fatfs/source)
+
+LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport)
 include $(BUILD_SBL_EXECUTABLE)
 
@@ -534,6 +540,9 @@ LOCAL_C_INCLUDES := \
 	$(addprefix $(LOCAL_PATH)/,avb)
 LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libkernelflinger)
+LOCAL_C_INCLUDES += \
+	$(addprefix $(LOCAL_PATH)/,libkernelflinger/fatfs/source)
+
 LOCAL_C_INCLUDES += \
 	$(addprefix $(LOCAL_PATH)/,libsslsupport)
 include $(BUILD_SBL_EXECUTABLE)

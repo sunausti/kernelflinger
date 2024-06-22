@@ -29,22 +29,22 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#ifndef _FATFS_H_
+#define _FATFS_H_
 #include <efi.h>
 #include <efilib.h>
 #include <lib.h>
 #include "gpt.h"
-#ifndef _FATFS_H_
-#define _FATFS_H_
-
+#include "ff.h"
 #define UINT8to16(high, low) (((UINT16)(high) << 8) | (low))
 #define UINT8to32(byte3, byte2, byte1, byte0) \
     (((UINT32)(byte3) << 24) | \
      ((UINT32)(byte2) << 16) | \
      ((UINT32)(byte1) << 8)  | \
      (byte0))
-#define FAT12 0
-#define FAT16 1
-#define FAT32 2
+#define FAT12 1
+#define FAT16 2 
+#define FAT32 4
 
 /*https://academy.cba.mit.edu/classes/networking_communications/SD/FAT.pdf*/
 typedef struct fat_fs {
@@ -75,6 +75,12 @@ typedef struct fat_fs {
 	struct gpt_partition_interface parti;
 } FAT_FS;
 
+typedef struct fatsystem {
+	struct gpt_partition_interface parti;
+	FATFS fatfs;
+	UINT32 bpb_offset;
+} FATSYSTEM;
+
 typedef struct fatfs_fsobj {
    FAT_FS * fs;
    UINT8 sname[11];
@@ -89,9 +95,9 @@ typedef struct fatfs_fsobj {
    UINT16 FstClusLO;
    UINT16 FileSize;
 } FATFS_FSOBJ;
-EFI_STATUS fat_readdisk(INT64 offset, UINT64 len, void *data);
-EFI_STATUS fat_writedisk(INT64 offset, UINT64 len, void *data);
-
+EFI_STATUS fat_readdisk(UINT32 offset, UINT32 len, void *data);
+EFI_STATUS fat_writedisk(UINT32 offset, UINT32 len, void *data);
+UINT32 fat_getbpb_offset();
 EFI_STATUS fat_init();
 VOID debug_hex(UINT32 offset, CHAR8 *data, UINT16 size);
 #endif /* _FATFS_H_ */

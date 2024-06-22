@@ -76,7 +76,6 @@
 #ifdef USE_IVSHMEM
 #include "ivshmem.h"
 #endif
-
 /* Ensure this is embedded in the EFI binary somewhere */
 static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
 
@@ -1214,7 +1213,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	enum boot_target boot_target = NORMAL_BOOT;
 	UINT8 boot_state = BOOT_STATE_GREEN;
 	VBDATA *vb_data = NULL;
-
 	set_boottime_stamp(TM_EFI_MAIN);
 	/* gnu-efi initialization */
 	InitializeLib(image, sys_table);
@@ -1312,11 +1310,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		efi_perror(ret, L"Slot management initialization failed");
 		return ret;
 	}
-
     if(fat_init() != EFI_SUCCESS)
 	{
 	    debug(L"init fat system failed");
 	}
+    /*
     if(EFI_SUCCESS != fat_readdisk(0, 512, vbr_sector))
 	{
 	    debug(L"read vbr failed");
@@ -1326,6 +1324,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
     debug(L"start read WDT Control");
     debug(L"%x",MmioRead32(0x1854));
     debug(L"end read WDT Control");
+	*/
+
 	/* The code is only availble for fb4sbl.elf image which is used
 	 * as ELK file in non efi boot. It will force bootloader enter
 	 * into fastboot mode.

@@ -31,12 +31,31 @@
  */
 #include "fatfs.h"
 #include "gpt.h"
+#include "ff.h"
 
-static FAT_FS g_fatfs;
+static FATSYSTEM g_fatsystem;
 
-EFI_STATUS fat_readdisk(INT64 offset, UINT64 len, void *data)
-{
-    struct fat_fs *fs= &g_fatfs;
+VOID debug_ascii(CHAR8 * ch, UINT16 size) {
+    UINT16 i;
+	for(i = 0; i < size;i++) {
+	    debug(L"%c", ch[i]);
+	}
+}
+VOID debug_hex(UINT32 offset, CHAR8 *data, UINT16 size){
+    UINT16 i;
+	for(i = 0; i < size/8;i++) {
+	    debug(L"%x   %x,%x,%x,%x,%x,%x,%x,%x",offset+i*8,data[i*8],
+            data[i*8+1],data[i*8+2],data[i*8+3],data[i*8+4],
+            data[i*8+5],data[i*8+6],data[i*8+7]);
+	}
+}
+UINT32 fat_getbpb_offset(){
+    debug(L"fat_getbpb_offset: %d",g_fatsystem.bpb_offset);
+    return g_fatsystem.bpb_offset;
+}
+
+EFI_STATUS fat_readdisk(UINT32 offset, UINT32 len, void *data) {
+    FATSYSTEM *fs = &g_fatsystem;
     EFI_STATUS ret = EFI_SUCCESS;
 	debug(L"fat_readdisk offset: 0x%x, len: 0x%x", offset, len);
 	if (fs == NULL || fs->parti.dio == NULL || fs->parti.bio == NULL)
@@ -54,9 +73,9 @@ EFI_STATUS fat_readdisk(INT64 offset, UINT64 len, void *data)
     return ret;
 }
 
-EFI_STATUS fat_writedisk( INT64 offset, UINT64 len, void *data)
+EFI_STATUS fat_writedisk( UINT32 offset, UINT32 len, void *data)
 {
-    struct fat_fs *fs= &g_fatfs;
+    FATSYSTEM *fs = &g_fatsystem;
     EFI_STATUS ret = EFI_SUCCESS;
 	if (fs == NULL || fs->parti.bio == NULL)
 	{
@@ -69,13 +88,44 @@ EFI_STATUS fat_writedisk( INT64 offset, UINT64 len, void *data)
         efi_perror(ret, L"fat write failed");
     return ret;
 }
-EFI_STATUS fat_init() 
+#if 0
+/* write file in root directory and name is Short file name
+   11 characters(8.3 format), not support LFN yet
+ */
+
+EFI_STATUS fat_write_file(CHAR8 *filename,void * data, UINTN *size)
 {
     struct fat_fs *fs= &g_fatfs;
-    UINT8 bpb_sec[512];
+}
+
+//read file in root directory 
+EFI_STATUS fat_read_file(CHAR8* filename, void ** data, UINTN *size)
+{
+    struct fat_fs *fs= &g_fatfs;
+}
+
+EFI_STATUS fat_exist_file(CHAR8* filename) {
+
+    struct fat_fs *fs= &g_fatfs;
+	void * rootp;
+	CHAR8 sname[12]; //only for short name 8.3
+    UINTN item;
+    rootp = AllocatePool(fs->RootDirSectors*fs->BytsPerSec);
+    fat_readdisk(fs->root_offset,fs->RootEntCnt*32,rootp);
+	for(item = 0; item <fs->RootEntCnt;i++){
+	}
+}
+#endif
+EFI_STATUS fat_init() 
+{
+    FATSYSTEM  *fs = &g_fatsystem;
     EFI_STATUS ret = EFI_SUCCESS;
     EFI_GUID guid;
-    ret = gpt_get_partition_by_label(PRIMARY_LABEL, &fs->parti, LOGICAL_UNIT_USER);
+	FRESULT f_ret;
+    FIL fp;
+	CHAR8 ch[33];
+	UINT32 readb;
+	ret = gpt_get_partition_by_label(PRIMARY_LABEL, &fs->parti, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to get disk information");
 		return ret;
@@ -87,66 +137,52 @@ EFI_STATUS fat_init()
 	}else {
 	    error(L"can not find Efi system partition");
 	}
-    fs->bpb_offset = fs->parti.part.starting_lba*512;
-    ret = fat_readdisk(fs->bpb_offset,512,bpb_sec);
+	fs->bpb_offset = fs->parti.part.starting_lba*512;
+	debug(L"starting_lba is %x",fs->parti.part.starting_lba);
+	debug(L"bpb_offset is %x",fs->bpb_offset);
+    ret = fat_readdisk(fs->bpb_offset,512,fs->fatfs.win);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to get FAT BPB");
 		return ret;
 	}
-    
-    fs->BytsPerSec=UINT8to16(bpb_sec[12],bpb_sec[11]);
-    fs->SecPerClus=bpb_sec[13];
-	fs->RsvdSecCnt=UINT8to16(bpb_sec[15],bpb_sec[14]);
-	fs->NumFATs = bpb_sec[16];
-	fs->RootEntCnt = UINT8to16(bpb_sec[18],bpb_sec[17]);
-    debug(L"first 4 %x,%x,%x,%x",fs->BytsPerSec,fs->RsvdSecCnt,fs->NumFATs,fs->RootEntCnt);
-    fs->TotSec16 = UINT8to16(bpb_sec[20],bpb_sec[19]);
-    fs->FATSz16 = UINT8to16(bpb_sec[23],bpb_sec[22]);
-	fs->TotSec32 = UINT8to32(bpb_sec[35],bpb_sec[34],bpb_sec[33],bpb_sec[32]);
-    fs->FATSz32 = UINT8to32(bpb_sec[39],bpb_sec[38],bpb_sec[37],bpb_sec[36]);
-    debug(L" Second 4 %x,%x,%x,%x",fs->TotSec16 ,fs->FATSz16,fs->TotSec32,fs->FATSz32);
+    debug_hex(0,fs->fatfs.win,512);
+	fs->fatfs.pdrv = 4;
+	if(FR_OK != f_mount(&fs->fatfs,"/",1)) {
+	    debug(L"the file is not mount success");
+        return EFI_NOT_FOUND;
+    }
 
-    fs->RootClus = UINT8to32(bpb_sec[47],bpb_sec[46],bpb_sec[45],bpb_sec[44]);
-    fs->FSInfo = UINT8to16(bpb_sec[49],bpb_sec[48]);
-    fs->BkBootSec = UINT8to16(bpb_sec[51],bpb_sec[50]);
-    fs->RootDirSectors = ((fs->RootEntCnt * 32) + (fs->BytsPerSec -1))/ fs->BytsPerSec;
-    debug(L" Third 4 %x,%x,%x,%x",fs->RootClus,fs->FSInfo,fs->BkBootSec,fs->RootDirSectors );
-    if( fs->FATSz16 != 0 ) {
-        fs->FATSz = fs->FATSz16;
-    } else {
-        fs->FATSz = fs->FATSz32;
-    }
-    if( fs->TotSec16 != 0 ) {
-        fs->TotSec = fs->TotSec16;
-    } else {
-        fs->TotSec = fs->TotSec32;
-    }
-    fs->DataSec = fs->TotSec - ((UINT32)fs->RsvdSecCnt + (fs->NumFATs*fs->FATSz) + (UINT32)fs->RootDirSectors);
-    debug(L" DataSec: %x",fs->DataSec);
-    fs->CountofClusters = fs->DataSec / fs->SecPerClus;
-    debug(L"CountofClusters : %x",fs->CountofClusters );
-    if(fs->CountofClusters < 4085) {
-        efi_perror(ret, L"fat12 is not supported");
-        fs->FilSysType = FAT12;
-    } else if(fs->CountofClusters < 65525) {
-        fs->FilSysType = FAT16;
-        debug(L"FAT16 System");
-    } else {
-        efi_perror(ret, L"fat32 is not supported");
-        fs->FilSysType = FAT32;
-    }
-    fs->fat_offset = fs->bpb_offset + fs->RsvdSecCnt*fs->BytsPerSec;
-    fs->root_offset = fs->bpb_offset + ((UINT32)fs->RsvdSecCnt + fs->NumFATs*fs->FATSz)*fs->BytsPerSec;
-    fs->data_offset = fs->root_offset + fs->RootDirSectors*fs->BytsPerSec;
-    debug(L"fat offset: %x, root_offset: %x, data_offset: %x",fs->fat_offset, fs->root_offset, fs->data_offset);
-    return ret;
+	 debug(L"f_mount success");
+    f_ret = f_open(&fp, "/fat16.txt",FA_READ);
+	if (!f_ret) {
+	    debug(L"open fat16.txt success");
+	} else {
+	    debug(L"open fat16.txt result %d,", f_ret);
+	}
+	f_ret = f_read(&fp,ch,32,&readb);
+	ch[32] = 0;
+	if (!f_ret) {
+	    debug(L"read fat16.txt len %d",readb);  
+        debug_ascii(ch,32);
+	}else {
+	    debug(L"read fat16.txt error %d", f_ret);
+	}
+	return ret;
 }
 
-VOID debug_hex(UINT32 offset, CHAR8 *data, UINT16 size){
-    UINT16 i;
-	for(i = 0; i < size/8;i++) {
-	    debug(L"%x   %x,%x,%x,%x,%x,%x,%x,%x",offset+i*8,data[i*8],
-            data[i*8+1],data[i*8+2],data[i*8+3],data[i*8+4],
-            data[i*8+5],data[i*8+6],data[i*8+7]);
+
+
+UINT32 get_fattime() {
+    EFI_STATUS ret;
+    EFI_TIME now;
+
+	ret = uefi_call_wrapper(RT->GetTime, 2, &now, NULL);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to get the current time");
+        return 42<<25|1<<21|1<<16;
 	}
+    return ((UINT32)now.Year-1980)<<25 | (UINT32)(now.Month)<<21 \
+           | (UINT32)(now.Day)<<16 |(UINT32)(now.Hour)<<11 \
+           | (UINT32)(now.Minute) << 5 | now.Second;
+    
 }
