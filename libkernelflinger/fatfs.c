@@ -167,6 +167,40 @@ EFI_STATUS fat_init()
 	}else {
 	    debug(L"read fat16.txt error %d", f_ret);
 	}
+    f_close(&fp);
+    f_ret = f_open(&fp, "/austin.txt",FA_READ|FA_WRITE);
+	if( f_ret == FR_NO_FILE ) {
+	    debug(L"/austin.txt file is not existing");
+        f_ret = f_open(&fp, "/austin.txt",FA_READ|FA_WRITE|FA_CREATE_NEW);
+		if (f_ret != 0) {
+	        debug(L"f_create err:%d", f_ret);
+		    return ret;
+		}
+	} else if( f_ret == 0 ) {
+	    debug(L"open /austin.txt success");
+	} else {
+	    debug(L"f_open err:%d", f_ret);
+		return ret;
+	}
+	INT16 i;
+	for(i = 0;i<26;i++) {
+	    ch[i] = 'a'+i;
+	}
+    for (i = 0; i < 3;i++) {
+	    ret = f_write(&fp,ch+i*8,8,&readb);
+		if(ret != 0) {
+		    debug(L"f_write error:%d", ret);
+			break;
+		}
+	}
+	f_ret = f_read(&fp,ch,24,&readb);
+	if (!f_ret) {
+	    debug(L"read austin.txt len %d",readb);  
+        debug_ascii(ch,24);
+	}else {
+	    debug(L"read austin.txt error %d", f_ret);
+	}
+    f_close(&fp);
 	return ret;
 }
 
