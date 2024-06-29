@@ -56,6 +56,7 @@
 #include "aes_gcm.h"
 #include "keybox_provision.h"
 #endif
+#include "fatfs.h"
 static struct gpt_partition_interface gparti;
 static UINT64 cur_offset;
 static BOOLEAN userdata_erased = FALSE;
@@ -132,6 +133,7 @@ out:
 	FreePool(buf);
 	return ret;
 }
+
 
 static EFI_STATUS flash_into_esp(VOID *data, UINTN size, CHAR16 *label)
 {
@@ -484,6 +486,7 @@ static struct label_exception {
 	{ L"ifwi", flash_ifwi },
 	{ L"oemvars", flash_oemvars },
 	{ L"kernel", flash_kernel },
+	{ L"fwupdate", flash_fwupdate},
 	{ L"ramdisk", flash_ramdisk },
 	{ ESP_LABEL, flash_esp },
 #if defined(IOC_USE_SLCAN) || defined(IOC_USE_CBC)
@@ -505,6 +508,10 @@ EFI_STATUS flash(VOID *data, UINTN size, CHAR16 *label)
 	if (!StrnCmp(esp, label, StrLen(esp)))
 		return flash_into_esp(data, size, &label[ARRAY_SIZE(esp) - 1]);
 #endif
+ 	CHAR16 fwupdate[] = L"fwupdate";
+	if (!StrnCmp(esp, label, StrLen(fwupdate)))
+		return flash_into_esp(data, size, &label[ARRAY_SIZE(esp) - 1]);
+
 	/* special cases */
 	for (i = 0; i < ARRAY_SIZE(LABEL_EXCEPTIONS); i++)
 		if (!StrCmp(LABEL_EXCEPTIONS[i].name, label))

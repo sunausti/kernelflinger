@@ -116,6 +116,64 @@ EFI_STATUS fat_exist_file(CHAR8* filename) {
 	}
 }
 #endif
+
+static CHAR8 * fwuImage = "/FwuImage.bin";
+EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
+{
+    FATSYSTEM  *fs = &g_fatsystem;
+    EFI_STATUS ret = EFI_SUCCESS;
+    EFI_GUID guid;
+	FRESULT f_ret;
+    FIL fp;
+	UINTN bsize; //getback size
+    ret = gpt_get_partition_by_label(PRIMARY_LABEL, &fs->parti, LOGICAL_UNIT_USER);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to get disk information");
+		return ret;
+	}
+	guid = fs->parti.part.type;
+	if (0 == CompareGuid(&fs->parti.part.type, &EfiPartTypeSystemPartitionGuid)) {
+	    debug(L"the guid is matched");
+	}else {
+	    error(L"can not find Efi system partition");
+	}
+	fs->bpb_offset = fs->parti.part.starting_lba*512;
+    ret = fat_readdisk(fs->bpb_offset,512,fs->fatfs.win);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Failed to get FAT BPB");
+		return ret;
+	}
+	fs->fatfs.pdrv = 4;
+	if(FR_OK != f_mount(&fs->fatfs,"/",1)) {
+	    debug(L"the file is not mount success");
+        return EFI_NOT_FOUND;
+    }
+	debug(L"f_mount success");
+    f_ret = f_open(&fp, fwuImage, FA_READ|FA_WRITE);
+	if( f_ret == FR_NO_FILE ) {
+	    debug(L"%s file is not existing", fwuImage);
+        f_ret = f_open(&fp, fwuImage,FA_READ|FA_WRITE|FA_CREATE_NEW);
+		if (f_ret != 0) {
+	        debug(L"f_create err:%d", f_ret);
+		    return ret;
+		}
+	} else if( f_ret == 0 ) {
+	    debug(L"open %s success", fwuImage);
+	} else {
+	    debug(L"f_open err:%d", f_ret);
+		return ret;
+	}
+	ret = f_write(&fp,data,size,&bsize);
+	if(ret != 0) {
+	    debug(L"f_write error:%d", ret);
+		return ret;
+	}
+	if(size != bsize) {
+	    debug(L"write %x is not equal %x",size,bsize);
+		return EFI_VOLUME_CORRUPTED;
+	}
+	return ret;
+}
 EFI_STATUS fat_init() 
 {
     FATSYSTEM  *fs = &g_fatsystem;

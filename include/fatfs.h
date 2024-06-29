@@ -100,4 +100,5 @@ EFI_STATUS fat_writedisk(UINT32 offset, UINT32 len, void *data);
 UINT32 fat_getbpb_offset();
 EFI_STATUS fat_init();
 VOID debug_hex(UINT32 offset, CHAR8 *data, UINT16 size);
+EFI_STATUS flash_fwupdate(VOID *data, UINTN size);
 #endif /* _FATFS_H_ */
