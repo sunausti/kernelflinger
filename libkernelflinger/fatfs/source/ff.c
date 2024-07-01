@@ -1063,12 +1063,19 @@ static FRESULT sync_window (	/* Returns FR_OK or FR_DISK_ERR */
 
 	debug(L"sync_window : %d", __LINE__);
 	if (fs->wflag) {	/* Is the disk access window dirty? */
-	    debug(L"sync_window start : %d", __LINE__);
+	    debug(L"sync_window dirty start : %d", __LINE__);
 		if (disk_write(fs->pdrv, fs->win, fs->winsect, 1) == RES_OK) {	/* Write it back into the volume */
-	        debug(L"sync_window disk_write ok: %d", __LINE__);
+	        debug(L"sync_window  dirty disk_write ok: %d", __LINE__);
 			fs->wflag = 0;	/* Clear window dirty flag */
 			if (fs->winsect - fs->fatbase < fs->fsize) {	/* Is it in the 1st FAT? */
-				if (fs->n_fats == 2) disk_write(fs->pdrv, fs->win, fs->winsect + fs->fsize, 1);	/* Reflect it to 2nd FAT if needed */
+				if (fs->n_fats == 2) {
+				   disk_write(fs->pdrv, fs->win, fs->winsect + fs->fsize, 1);	/* Reflect it to 2nd FAT if needed */
+	               debug(L"sync_window  n_fats2 dirty disk_write ok: %d", __LINE__);
+				} else {
+	               debug(L"sync_window  n_fats1 dirty disk_write ok: %d", __LINE__);
+				}
+			} else {
+	               debug(L"sync_window not in 1st FAT %d, winsect:%x, fatbase:%x, fsize:%x", __LINE__, fs->winsect,fs->fatbase,fs->fsize);
 			}
 		} else {
 	        debug(L"sync_window disk_write err: %d", __LINE__);
@@ -3591,6 +3598,7 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 		fs->fsize = fasize;
 
 		fs->n_fats = fs->win[BPB_NumFATs];				/* Number of FATs */
+		debug(L"number of fat is %d", fs->n_fats);
 		if (fs->n_fats != 1 && fs->n_fats != 2) return FR_NO_FILESYSTEM;	/* (Must be 1 or 2) */
 		fasize *= fs->n_fats;							/* Number of sectors for FAT area */
 

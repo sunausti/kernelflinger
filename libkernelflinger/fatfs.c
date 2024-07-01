@@ -117,7 +117,7 @@ EFI_STATUS fat_exist_file(CHAR8* filename) {
 }
 #endif
 
-static CHAR8 * fwuImage = "/FwuImage.bin";
+static TCHAR * fwuImage = L"/FwuImage.bin";
 EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 {
     FATSYSTEM  *fs = &g_fatsystem;
@@ -147,7 +147,7 @@ EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 		return ret;
 	}
 	fs->fatfs.pdrv = 4;
-	if(FR_OK != f_mount(&fs->fatfs,"/",1)) {
+	if(FR_OK != f_mount(&fs->fatfs,L"/",1)) {
 	    debug(L"the file is not mount success");
         return EFI_NOT_FOUND;
     }
@@ -242,13 +242,13 @@ EFI_STATUS fat_init()
 	}
     debug_hex(0,fs->fatfs.win,512);
 	fs->fatfs.pdrv = 4;
-	if(FR_OK != f_mount(&fs->fatfs,"/",1)) {
+	if(FR_OK != f_mount(&fs->fatfs,L"/",1)) {
 	    debug(L"the file is not mount success");
         return EFI_NOT_FOUND;
     }
 
 	 debug(L"f_mount success");
-    f_ret = f_open(&fp, "/fat16.txt",FA_READ);
+    f_ret = f_open(&fp, L"/fat16.txt",FA_READ);
 	if (!f_ret) {
 	    debug(L"open fat16.txt success");
 	} else {
@@ -263,10 +263,10 @@ EFI_STATUS fat_init()
 	    debug(L"read fat16.txt error %d", f_ret);
 	}
     f_close(&fp);
-    f_ret = f_open(&fp, "/austin.txt",FA_READ|FA_WRITE);
+    f_ret = f_open(&fp, L"/austin.txt",FA_READ|FA_WRITE);
 	if( f_ret == FR_NO_FILE ) {
 	    debug(L"/austin.txt file is not existing");
-        f_ret = f_open(&fp, "/austin.txt",FA_READ|FA_WRITE|FA_CREATE_NEW);
+        f_ret = f_open(&fp, L"/austin.txt",FA_READ|FA_WRITE|FA_CREATE_NEW);
 		if (f_ret != 0) {
 	        debug(L"f_create err:%d", f_ret);
 		    return ret;
