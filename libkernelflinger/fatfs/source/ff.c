@@ -1061,13 +1061,17 @@ static FRESULT sync_window (	/* Returns FR_OK or FR_DISK_ERR */
 	FRESULT res = FR_OK;
 
 
+	debug(L"sync_window : %d", __LINE__);
 	if (fs->wflag) {	/* Is the disk access window dirty? */
+	    debug(L"sync_window start : %d", __LINE__);
 		if (disk_write(fs->pdrv, fs->win, fs->winsect, 1) == RES_OK) {	/* Write it back into the volume */
+	        debug(L"sync_window disk_write ok: %d", __LINE__);
 			fs->wflag = 0;	/* Clear window dirty flag */
 			if (fs->winsect - fs->fatbase < fs->fsize) {	/* Is it in the 1st FAT? */
 				if (fs->n_fats == 2) disk_write(fs->pdrv, fs->win, fs->winsect + fs->fsize, 1);	/* Reflect it to 2nd FAT if needed */
 			}
 		} else {
+	        debug(L"sync_window disk_write err: %d", __LINE__);
 			res = FR_DISK_ERR;
 		}
 	}
@@ -4249,6 +4253,7 @@ FRESULT f_sync (
 
 	res = validate(&fp->obj, &fs);	/* Check validity of the file object */
 	if (res == FR_OK) {
+	    debug(L"f_sync1 %x", fp->flag);
 		if (fp->flag & FA_MODIFIED) {	/* Is there any change to the file? */
 #if !FF_FS_TINY
 			if (fp->flag & FA_DIRTY) {	/* Write-back cached data if needed */
@@ -4290,8 +4295,10 @@ FRESULT f_sync (
 			} else
 #endif
 			{
+	           debug(L"f_sync 2 start move_win");
 				res = move_window(fs, fp->dir_sect);
 				if (res == FR_OK) {
+	                debug(L"f_sync 3, start move_win ok");
 					dir = fp->dir_ptr;
 					dir[DIR_Attr] |= AM_ARC;						/* Set archive attribute to indicate that the file has been changed */
 					st_clust(fp->obj.fs, dir, fp->obj.sclust);		/* Update file allocation information  */
@@ -4302,6 +4309,8 @@ FRESULT f_sync (
 					res = sync_fs(fs);					/* Restore it to the directory */
 					fp->flag &= (BYTE)~FA_MODIFIED;
 				}
+				    
+	             debug(L"f_sync 4, start move_win ret %x",  res);
 			}
 		}
 	}
@@ -4342,6 +4351,9 @@ FRESULT f_close (
 			unlock_volume(fs, FR_OK);		/* Unlock volume */
 #endif
 		}
+	}else{
+	    
+	debug(L"f_sync error: %d", __LINE__);
 	}
 	return res;
 }

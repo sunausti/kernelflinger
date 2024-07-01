@@ -111,10 +111,15 @@ DRESULT disk_write (
 	UINT count			/* Number of sectors to write */
 )
 {
+    UINT32 offset = 0;
+	offset += sector;
+	offset = offset * 512;
+    offset += fat_getbpb_offset();
+    debug(L"disk_write %d, pdrv %d sector %d, count %d, offset %d, bpb: %d", __LINE__, pdrv, sector, count, offset, fat_getbpb_offset());
 
 	switch (pdrv) {
 	case DEV_NVME:
-        fat_writedisk((fat_getbpb_offset()+sector)*512,count*512,(void *)buff);
+        fat_writedisk(offset,count*512,(void *)buff);
 	    return 0x0;
 	default:
 		return RES_PARERR;
@@ -140,13 +145,10 @@ DRESULT disk_ioctl (
 	DRESULT ret = RES_OK;
     if (cmd != 0) {
 	   debug(L"%x", (CHAR8 *)buff);
-	   return RES_PARERR;
+	   return ret;
 	}
 	switch (pdrv) {
-	case DEV_USB :
-
-		// Process of the command the USB drive
-        
+    case DEV_NVME:
 		return ret;
 	}
 

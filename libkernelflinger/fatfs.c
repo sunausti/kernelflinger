@@ -126,6 +126,9 @@ EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 	FRESULT f_ret;
     FIL fp;
 	UINTN bsize; //getback size
+	CHAR8 ch[33];
+	UINT32 readb;
+
     ret = gpt_get_partition_by_label(PRIMARY_LABEL, &fs->parti, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to get disk information");
@@ -168,10 +171,44 @@ EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 	    debug(L"f_write error:%d", ret);
 		return ret;
 	}
+	debug(L"f_write OK:%d", ret);
 	if(size != bsize) {
 	    debug(L"write %x is not equal %x",size,bsize);
 		return EFI_VOLUME_CORRUPTED;
 	}
+	debug(L"good size is same");
+    ret = f_close(&fp);
+
+	if(ret != 0) {
+	    debug(L"f_close error:%d", ret);
+		return ret;
+	}
+
+	debug(L"read again");
+    f_ret = f_open(&fp, fwuImage, FA_READ|FA_WRITE);
+	if( f_ret == FR_NO_FILE ) {
+	    debug(L"%s file is not existing", fwuImage);
+        f_ret = f_open(&fp, fwuImage,FA_READ|FA_WRITE|FA_CREATE_NEW);
+		if (f_ret != 0) {
+	        debug(L"f_create err:%d", f_ret);
+		    return ret;
+		}
+	} else if( f_ret == 0 ) {
+	    debug(L"open %s success", fwuImage);
+	} else {
+	    debug(L"f_open err:%d", f_ret);
+		return ret;
+	}
+	f_ret = f_read(&fp,ch,32,&readb);
+	ch[32] = 0;
+	if (!f_ret) {
+	    debug(L"read len %d",readb);  
+        debug_ascii(ch,32);
+	}else {
+	    debug(L"read error %d", f_ret);
+	}
+    f_close(&fp);
+
 	return ret;
 }
 EFI_STATUS fat_init() 

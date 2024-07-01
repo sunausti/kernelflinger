@@ -508,10 +508,6 @@ EFI_STATUS flash(VOID *data, UINTN size, CHAR16 *label)
 	if (!StrnCmp(esp, label, StrLen(esp)))
 		return flash_into_esp(data, size, &label[ARRAY_SIZE(esp) - 1]);
 #endif
- 	CHAR16 fwupdate[] = L"fwupdate";
-	if (!StrnCmp(esp, label, StrLen(fwupdate)))
-		return flash_into_esp(data, size, &label[ARRAY_SIZE(esp) - 1]);
-
 	/* special cases */
 	for (i = 0; i < ARRAY_SIZE(LABEL_EXCEPTIONS); i++)
 		if (!StrCmp(LABEL_EXCEPTIONS[i].name, label))

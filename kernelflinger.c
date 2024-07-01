@@ -1310,10 +1310,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		efi_perror(ret, L"Slot management initialization failed");
 		return ret;
 	}
-    if(fat_init() != EFI_SUCCESS)
+    /*if(fat_init() != EFI_SUCCESS)
 	{
 	    debug(L"init fat system failed");
-	}
+	}*/
     /*
     if(EFI_SUCCESS != fat_readdisk(0, 512, vbr_sector))
 	{
