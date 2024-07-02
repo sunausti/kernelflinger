@@ -240,7 +240,7 @@
 #endif
 #define LEAVE_FF(fs, res)	{ unlock_volume(fs, res); return res; }
 #else
-#define LEAVE_FF(fs, res)	{debug(L"res %d", res); return res;}
+#define LEAVE_FF(fs, res)	{ return res; }
 #endif
 
 
@@ -1061,24 +1061,17 @@ static FRESULT sync_window (	/* Returns FR_OK or FR_DISK_ERR */
 	FRESULT res = FR_OK;
 
 
-	debug(L"sync_window : %d", __LINE__);
 	if (fs->wflag) {	/* Is the disk access window dirty? */
-	    debug(L"sync_window dirty start : %d", __LINE__);
 		if (disk_write(fs->pdrv, fs->win, fs->winsect, 1) == RES_OK) {	/* Write it back into the volume */
-	        debug(L"sync_window  dirty disk_write ok: %d", __LINE__);
 			fs->wflag = 0;	/* Clear window dirty flag */
 			if (fs->winsect - fs->fatbase < fs->fsize) {	/* Is it in the 1st FAT? */
 				if (fs->n_fats == 2) {
 				   disk_write(fs->pdrv, fs->win, fs->winsect + fs->fsize, 1);	/* Reflect it to 2nd FAT if needed */
-	               debug(L"sync_window  n_fats2 dirty disk_write ok: %d", __LINE__);
 				} else {
-	               debug(L"sync_window  n_fats1 dirty disk_write ok: %d", __LINE__);
 				}
 			} else {
-	               debug(L"sync_window not in 1st FAT %d, winsect:%x, fatbase:%x, fsize:%x", __LINE__, fs->winsect,fs->fatbase,fs->fsize);
 			}
 		} else {
-	        debug(L"sync_window disk_write err: %d", __LINE__);
 			res = FR_DISK_ERR;
 		}
 	}
@@ -1180,7 +1173,6 @@ static DWORD get_fat (		/* 0xFFFFFFFF:Disk error, 1:Internal error, 2..0x7FFFFFF
 	DWORD val;
 	FATFS *fs = obj->fs;
 
-	debug(L"get_fat: %d", __LINE__);
 	if (clst < 2 || clst >= fs->n_fatent) {	/* Check if in valid range */
 		val = 1;	/* Internal error */
 
@@ -1189,7 +1181,6 @@ static DWORD get_fat (		/* 0xFFFFFFFF:Disk error, 1:Internal error, 2..0x7FFFFFF
 
 		switch (fs->fs_type) {
 		case FS_FAT12 :
-	        debug(L"get_fat: %d FAT12", __LINE__);
 			bc = (UINT)clst; bc += bc / 2;
 			if (move_window(fs, fs->fatbase + (bc / SS(fs))) != FR_OK) break;
 			wc = fs->win[bc++ % SS(fs)];		/* Get 1st byte of the entry */
@@ -1199,7 +1190,6 @@ static DWORD get_fat (		/* 0xFFFFFFFF:Disk error, 1:Internal error, 2..0x7FFFFFF
 			break;
 
 		case FS_FAT16 :
-	        debug(L"get_fat: %d FAT16", __LINE__);
 			if (move_window(fs, fs->fatbase + (clst / (SS(fs) / 2))) != FR_OK) break;
 			val = ld_word(fs->win + clst * 2 % SS(fs));		/* Simple WORD array */
 			break;
@@ -1717,9 +1707,7 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 	DWORD csz, clst;
 	FATFS *fs = dp->obj.fs;
 
-    debug(L"dir_sdi %d", __LINE__);
 	if (ofs >= (DWORD)((FF_FS_EXFAT && fs->fs_type == FS_EXFAT) ? MAX_DIR_EX : MAX_DIR) || ofs % SZDIRE) {	/* Check range of offset and alignment */
-        debug(L"dir_sdi %d", __LINE__);
 		return FR_INT_ERR;
 	}
 	dp->dptr = ofs;				/* Set current offset */
@@ -1729,7 +1717,6 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 		if (FF_FS_EXFAT) dp->obj.stat = 0;	/* exFAT: Root dir has an FAT chain */
 	}
 
-	debug(L"clst %d, dirbase %d", clst, fs->dirbase);	
 	if (clst == 0) {	/* Static table (root-directory on the FAT volume) */
 		if (ofs / SZDIRE >= fs->n_rootdir) return FR_INT_ERR;	/* Is index out of range? */
 		dp->sect = fs->dirbase;
@@ -1740,11 +1727,9 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 			clst = get_fat(&dp->obj, clst);				/* Get next cluster */
 			if (clst == 0xFFFFFFFF) 
 			{
-                debug(L"dir_sdi %d", __LINE__);
 			    return FR_DISK_ERR;	/* Disk error */           }
 			if (clst < 2 || clst >= fs->n_fatent)
             {
-			    debug(L"dir_sdi %d", __LINE__);
 			    return FR_INT_ERR;	/* Reached to end of table or internal error */
 			}
 			ofs -= csz;
@@ -1753,13 +1738,11 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 	}
 	dp->clust = clst;					/* Current cluster# */
 	if (dp->sect == 0){
-	    debug(L"dir_sdi %d", __LINE__);
 	    return FR_INT_ERR;
 	}
 	dp->sect += ofs / SS(fs);			/* Sector# of the directory entry */
 	dp->dir = fs->win + (ofs % SS(fs));	/* Pointer to the entry in the win[] */
 
-	debug(L"dir_sdi %d", __LINE__);
 	return FR_OK;
 }
 
@@ -2420,10 +2403,8 @@ static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
 	BYTE a, ord, sum;
 #endif
 
-    debug(L"dir_find , %d", __LINE__ );
 	res = dir_sdi(dp, 0);			/* Rewind directory object */
 	if (res != FR_OK) {
-        debug(L"dir_find , %d res, %d", __LINE__, res);
 	    return res;
 	}
 #if FF_FS_EXFAT
@@ -2454,13 +2435,11 @@ static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
 		res = move_window(fs, dp->sect);
 		if (res != FR_OK)
 		{
-            debug(L"dir_find , %d res, %d", __LINE__, res);
 		    break;
 		}
 		c = dp->dir[DIR_Name];
 		if (c == 0) {
 		    res = FR_NO_FILE;
-            debug(L"dir_find , %d res, %d", __LINE__, res);
 		    break; 
 		}	/* Reached to end of table */
 #if FF_USE_LFN		/* LFN configuration */
@@ -3097,7 +3076,6 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 	BYTE ns;
 	FATFS *fs = dp->obj.fs;
 
-    debug(L"follow_path 1");
 #if FF_FS_RPATH != 0
 	if (!IsSeparator(*path) && (FF_STR_VOLUME_ID != 2 || !IsTerminator(*path))) {	/* Without heading separator */
 		dp->obj.sclust = fs->cdir;			/* Start at the current directory */
@@ -3106,7 +3084,6 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 	{										/* With heading separator */
 		while (IsSeparator(*path)) path++;	/* Strip separators */
 		dp->obj.sclust = 0;					/* Start from the root directory */
-        debug(L"follow_path %d %s", __LINE__, path);
 	}
 #if FF_FS_EXFAT
 	dp->obj.n_frag = 0;	/* Invalidate last fragment counter of the object */
@@ -3126,26 +3103,20 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 #endif
 
 	if ((UINT)*path < ' ') {				/* Null path name is the origin directory itself */
-        debug(L"follow_path 2");
 		dp->fn[NSFLAG] = NS_NONAME;
 		res = dir_sdi(dp, 0);
 
 	} else {								/* Follow path */
-        debug(L"follow_path 3");
 		for (;;) {
-            debug(L"follow_path %d", __LINE__);
 			res = create_name(dp, &path);	/* Get a segment name of the path */
 			if (res != FR_OK) break;
-            debug(L"follow_path %d", __LINE__ );
 			res = dir_find(dp);				/* Find an object with the segment name */
 			ns = dp->fn[NSFLAG];
 			if (res != FR_OK) {				/* Failed to find the object */
-                debug(L"follow_path %d, res %d", __LINE__ , res);
 				if (res == FR_NO_FILE) {	/* Object is not found */
 					if (FF_FS_RPATH && (ns & NS_DOT)) {	/* If dot entry is not exist, stay there */
 						if (!(ns & NS_LAST)) continue;	/* Continue to follow if not last segment */
 						dp->fn[NSFLAG] = NS_NONAME;
-                        debug(L"follow_path %d, noname", __LINE__  );
 						res = FR_OK;
 					} else {							/* Could not find the object */
 						if (!(ns & NS_LAST)) res = FR_NO_PATH;	/* Adjust error code if not last segment */
@@ -3167,13 +3138,11 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 			} else
 #endif
 			{
-                debug(L"follow_path %d", __LINE__ );
 				dp->obj.sclust = ld_clust(fs, fs->win + dp->dptr % SS(fs));	/* Open next directory */
 			}
 		}
 	}
 
-    debug(L"follow_path return %d", res);
 	return res;
 }
 
@@ -3346,11 +3315,9 @@ static UINT check_fs (	/* 0:FAT/FAT32 VBR, 1:exFAT VBR, 2:Not FAT and valid BS, 
 	BYTE b;
 
 
-	debug(L"check_fs start: %d", sect);
 	fs->wflag = 0; fs->winsect = (LBA_t)0 - 1;		/* Invaidate window */
 	if (move_window(fs, sect) != FR_OK) 
 	{
-	    debug(L"check_fs load boot sec error");
 	    return 4;	/* Load the boot sector */
 	}
 	sign = ld_word(fs->win + BS_55AA);
@@ -3392,10 +3359,8 @@ static UINT find_volume (	/* Returns BS status found in the hosting drive */
 
 
 	fmt = check_fs(fs, 0);				/* Load sector 0 and check if it is an FAT VBR as SFD format */
-	debug(L"find_volume first: %d",fmt);
 	if (fmt != 2 && (fmt >= 3 || part == 0)) 
 	{
-	    debug(L"find_volume return");
 	    return fmt;	/* Returns if it is an FAT VBR as auto scan, not a BS or disk error */
     }
 	/* Sector 0 is not an FAT VBR or forced partition number wants a partition */
@@ -3407,12 +3372,10 @@ static UINT find_volume (	/* Returns BS status found in the hosting drive */
 
 		if (move_window(fs, 1) != FR_OK) 
 	    {
-		    debug(L"find_volume move_window ");
 		    return 4;	/* Load GPT header sector (next to MBR) */
 		}
 		if (!test_gpt_header(fs->win)) 
 		{
-		    debug(L"find_volume gpt");
 		    return 3;	/* Check if GPT header is valid */
 		}
 		n_ent = ld_dword(fs->win + GPTH_PtNum);		/* Number of entries */
@@ -3427,7 +3390,6 @@ static UINT find_volume (	/* Returns BS status found in the hosting drive */
 				if (part != 0 && v_ent == part) return fmt;		/* Forced partition order (regardless of it is valid or not) */
 			}
 		}
-		debug(L"find_volume move_window ");
 		return 3;	/* Not found */
 	}
 #endif
@@ -3439,7 +3401,6 @@ static UINT find_volume (	/* Returns BS status found in the hosting drive */
 	do {							/* Find an FAT volume */
 		fmt = mbr_pt[i] ? check_fs(fs, mbr_pt[i]) : 3;	/* Check if the partition is FAT */
 	} while (part == 0 && fmt >= 2 && ++i < 4);
-    debug(L"find volume fmt: %d",fmt);
 	return fmt;
 }
 
@@ -3469,14 +3430,12 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 	*rfs = 0;
 	vol = get_ldnumber(path);
 	if (vol < 0){
-	    debug(L"mount_volume volume id fail");
 	    return FR_INVALID_DRIVE;
 	}
 
 	/* Check if the filesystem object is valid or not */
 	fs = FatFs[vol];					/* Get pointer to the filesystem object */
 	if (!fs) {
-	    debug(L"mount_volume fs is null");
 	return FR_NOT_ENABLED;		/* Is the filesystem object available? */
 	}
 #if FF_FS_REENTRANT
@@ -3501,11 +3460,9 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 	fs->fs_type = 0;					/* Invalidate the filesystem object */
 	stat = disk_initialize(fs->pdrv);	/* Initialize the volume hosting physical drive */
 	if (stat & STA_NOINIT) { 			/* Check if the initialization succeeded */
-	    debug(L"mount_volume disk init fail");
 		return FR_NOT_READY;			/* Failed to initialize due to no medium or hard error */
 	}
 	if (!FF_FS_READONLY && mode && (stat & STA_PROTECT)) { /* Check disk write protection if needed */
-	    debug(L"mount_volume mode err ");
 		return FR_WRITE_PROTECTED;
 	}
 #if FF_MAX_SS != FF_MIN_SS				/* Get sector size (multiple sector size cfg only) */
@@ -3516,11 +3473,9 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 	/* Find an FAT volume on the hosting drive */
 	fmt = find_volume(fs, LD2PT(vol));
 	if (fmt == 4) {
-	    debug(L"mount_volume find_volume err ");
 	return FR_DISK_ERR;		/* An error occurred in the disk I/O layer */
 	}
 	if (fmt >= 2) {
-	    debug(L"mount_volume find_volume err2 ");
 	return FR_NO_FILESYSTEM;	/* No FAT volume is found */
 	}
 	bsect = fs->winsect;					/* Volume offset in the hosting physical drive */
@@ -3598,7 +3553,6 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 		fs->fsize = fasize;
 
 		fs->n_fats = fs->win[BPB_NumFATs];				/* Number of FATs */
-		debug(L"number of fat is %d", fs->n_fats);
 		if (fs->n_fats != 1 && fs->n_fats != 2) return FR_NO_FILESYSTEM;	/* (Must be 1 or 2) */
 		fasize *= fs->n_fats;							/* Number of sectors for FAT area */
 
@@ -3699,10 +3653,8 @@ static FRESULT validate (	/* Returns FR_OK or FR_INVALID_OBJECT */
 )
 {
 	FRESULT res = FR_INVALID_OBJECT;
-    debug(L"validate %d", __LINE__ );
 
 	if (obj && obj->fs && obj->fs->fs_type && obj->id == obj->fs->id) {	/* Test if the object is valid */
-    debug(L"validate %d", __LINE__ );
 #if FF_FS_REENTRANT
 		if (lock_volume(obj->fs, 0)) {	/* Take a grant to access the volume */
 			if (!(disk_status(obj->fs->pdrv) & STA_NOINIT)) { /* Test if the hosting phsical drive is kept initialized */
@@ -3714,15 +3666,12 @@ static FRESULT validate (	/* Returns FR_OK or FR_INVALID_OBJECT */
 			res = FR_TIMEOUT;
 		}
 #else
-        debug(L"validate %d", __LINE__ );
 		if (!(disk_status(obj->fs->pdrv) & STA_NOINIT)) { /* Test if the hosting phsical drive is kept initialized */
 
-            debug(L"validate %d", __LINE__ );
 			res = FR_OK;
 		}
 #endif
 	}
-     debug(L"validate %d, res %d", __LINE__, res );
 	*rfs = (res == FR_OK) ? obj->fs : 0;	/* Return corresponding filesystem object if it is valid */
 	return res;
 }
@@ -3758,7 +3707,6 @@ FRESULT f_mount (
 	vol = get_ldnumber(&rp);
 	if (vol < 0)
 	{
-	    debug(L"volume id fail");
 		return FR_INVALID_DRIVE;
 	}
 	cfs = FatFs[vol];			/* Pointer to the filesystem object of the volume */
@@ -3822,7 +3770,6 @@ FRESULT f_open (
 #endif
 	DEF_NAMBUF
 
-    debug(L"enter f_open");
 	if (!fp) return FR_INVALID_OBJECT;
 
 	/* Get logical drive number */
@@ -3831,9 +3778,7 @@ FRESULT f_open (
 	if (res == FR_OK) {
 		dj.obj.fs = fs;
 		INIT_NAMBUF(fs);
-        debug(L"f_open 2");
 		res = follow_path(&dj, path);	/* Follow the file path */
-        debug(L"f_open 11 res:%d", res);
 #if !FF_FS_READONLY	/* Read/Write configuration */
 		if (res == FR_OK) {
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* Origin directory itself? */
@@ -3858,14 +3803,12 @@ FRESULT f_open (
 				mode |= FA_CREATE_ALWAYS;		/* File is created */
 			}
 			else {								/* Any object with the same name is already existing */
-                debug(L"f_open 3");
 				if (dj.obj.attr & (AM_RDO | AM_DIR)) {	/* Cannot overwrite it (R/O or DIR) */
 					res = FR_DENIED;
 				} else {
 					if (mode & FA_CREATE_NEW) res = FR_EXIST;	/* Cannot create as new file */
 				}
 			}
-             debug(L"f_open 4");
 			if (res == FR_OK && (mode & FA_CREATE_ALWAYS)) {	/* Truncate the file if overwrite mode */
 #if FF_FS_EXFAT
 				if (fs->fs_type == FS_EXFAT) {
@@ -3887,7 +3830,6 @@ FRESULT f_open (
 #endif
 				{
 					/* Set directory entry initial state */
-                    debug(L"f_open 5");
 					tm = GET_FATTIME();					/* Set created time */
 					st_dword(dj.dir + DIR_CrtTime, tm);
 					st_dword(dj.dir + DIR_ModTime, tm);
@@ -3908,9 +3850,7 @@ FRESULT f_open (
 			}
 		}
 		else {	/* Open an existing file */
-            debug(L"f_open 6");
 			if (res == FR_OK) {					/* Is the object exsiting? */
-                debug(L"f_open 6 ok");
 				if (dj.obj.attr & AM_DIR) {		/* File open against a directory */
 					res = FR_NO_FILE;
 				} else {
@@ -3919,7 +3859,6 @@ FRESULT f_open (
 					}
 				}
 			} else {
-                debug(L"f_open 6 res:%d", res);
 			}
 		}
 			if (res == FR_OK) {					/* Is the object exsiting? */
@@ -3932,7 +3871,6 @@ FRESULT f_open (
 #endif
 		}
 #else		/* R/O configuration */
-         debug(L"f_open 8: %d", res);
 		if (res == FR_OK) {
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* Is it origin directory itself? */
 				res = FR_INVALID_NAME;
@@ -3944,7 +3882,6 @@ FRESULT f_open (
 		}
 #endif
 
-         debug(L"f_open 9: %d", res);
 		if (res == FR_OK) {
 #if FF_FS_EXFAT
 			if (fs->fs_type == FS_EXFAT) {
@@ -3992,14 +3929,12 @@ FRESULT f_open (
 #endif
 					}
 				}
-                debug(L"f_open 10, %d", res);
 #if FF_FS_LOCK
 				if (res != FR_OK) dec_share(fp->obj.lockid); /* Decrement file open counter if seek failed */
 #endif
 			}
 #endif
        }
-       debug(L"f_open 11, res %d", res);
 		FREE_NAMBUF();
 	}
 
@@ -4030,25 +3965,20 @@ FRESULT f_read (
 	UINT rcnt, cc, csect;
 	BYTE *rbuff = (BYTE*)buff;
 
-    debug(L"f_read 1");
 	*br = 0;	/* Clear read byte counter */
 	res = validate(&fp->obj, &fs);				/* Check validity of the file object */
 	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) {
 	   
-        debug(L"f_read 2");
 	    LEAVE_FF(fs, res);	/* Check validity */
 	}
 	if (!(fp->flag & FA_READ)) {
-        debug(L"f_read 3");
 	LEAVE_FF(fs, FR_DENIED); /* Check access mode */
 	}
 	remain = fp->obj.objsize - fp->fptr;
 	if (btr > remain) btr = (UINT)remain;		/* Truncate btr by remaining bytes */
 
-    debug(L"f_read 2");
 	for ( ; btr > 0; btr -= rcnt, *br += rcnt, rbuff += rcnt, fp->fptr += rcnt) {	/* Repeat until btr bytes read */
 
-        debug(L"f_read 3");
 		if (fp->fptr % SS(fs) == 0) {			/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
 			if (csect == 0) {					/* On the cluster boundary? */
@@ -4105,7 +4035,6 @@ FRESULT f_read (
 			fp->sect = sect;
 		}
 
-        debug(L"f_read 4");
 		rcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes remains in the sector */
 		if (rcnt > btr) rcnt = btr;					/* Clip it by btr if needed */
 #if FF_FS_TINY
@@ -4116,7 +4045,6 @@ FRESULT f_read (
 #endif
 	}
 
-    debug(L"f_read 5");
 	LEAVE_FF(fs, FR_OK);
 }
 
@@ -4261,7 +4189,6 @@ FRESULT f_sync (
 
 	res = validate(&fp->obj, &fs);	/* Check validity of the file object */
 	if (res == FR_OK) {
-	    debug(L"f_sync1 %x", fp->flag);
 		if (fp->flag & FA_MODIFIED) {	/* Is there any change to the file? */
 #if !FF_FS_TINY
 			if (fp->flag & FA_DIRTY) {	/* Write-back cached data if needed */
@@ -4303,10 +4230,8 @@ FRESULT f_sync (
 			} else
 #endif
 			{
-	           debug(L"f_sync 2 start move_win");
 				res = move_window(fs, fp->dir_sect);
 				if (res == FR_OK) {
-	                debug(L"f_sync 3, start move_win ok");
 					dir = fp->dir_ptr;
 					dir[DIR_Attr] |= AM_ARC;						/* Set archive attribute to indicate that the file has been changed */
 					st_clust(fp->obj.fs, dir, fp->obj.sclust);		/* Update file allocation information  */
@@ -4318,7 +4243,6 @@ FRESULT f_sync (
 					fp->flag &= (BYTE)~FA_MODIFIED;
 				}
 				    
-	             debug(L"f_sync 4, start move_win ret %x",  res);
 			}
 		}
 	}
@@ -4361,7 +4285,6 @@ FRESULT f_close (
 		}
 	}else{
 	    
-	debug(L"f_sync error: %d", __LINE__);
 	}
 	return res;
 }

@@ -50,14 +50,12 @@ VOID debug_hex(UINT32 offset, CHAR8 *data, UINT16 size){
 	}
 }
 UINT32 fat_getbpb_offset(){
-    debug(L"fat_getbpb_offset: %d",g_fatsystem.bpb_offset);
     return g_fatsystem.bpb_offset;
 }
 
 EFI_STATUS fat_readdisk(UINT32 offset, UINT32 len, void *data) {
     FATSYSTEM *fs = &g_fatsystem;
     EFI_STATUS ret = EFI_SUCCESS;
-	debug(L"fat_readdisk offset: 0x%x, len: 0x%x", offset, len);
 	if (fs == NULL || fs->parti.dio == NULL || fs->parti.bio == NULL)
 	{
 	    debug(L"fat_readdisk init fail");
@@ -82,40 +80,11 @@ EFI_STATUS fat_writedisk( UINT32 offset, UINT32 len, void *data)
 	    debug(L"fat_writedisk init fail");
 	    return EFI_INVALID_PARAMETER;
 	}
-	//ret = fs->dio->WriteDisk(fs->dio, fs->bio->Media->MediaId, offset, len, data);
 	ret = uefi_call_wrapper(fs->parti.dio->WriteDisk, 5, fs->parti.dio, fs->parti.bio->Media->MediaId,offset,len,data);
 	if (EFI_ERROR(ret))
         efi_perror(ret, L"fat write failed");
     return ret;
 }
-#if 0
-/* write file in root directory and name is Short file name
-   11 characters(8.3 format), not support LFN yet
- */
-
-EFI_STATUS fat_write_file(CHAR8 *filename,void * data, UINTN *size)
-{
-    struct fat_fs *fs= &g_fatfs;
-}
-
-//read file in root directory 
-EFI_STATUS fat_read_file(CHAR8* filename, void ** data, UINTN *size)
-{
-    struct fat_fs *fs= &g_fatfs;
-}
-
-EFI_STATUS fat_exist_file(CHAR8* filename) {
-
-    struct fat_fs *fs= &g_fatfs;
-	void * rootp;
-	CHAR8 sname[12]; //only for short name 8.3
-    UINTN item;
-    rootp = AllocatePool(fs->RootDirSectors*fs->BytsPerSec);
-    fat_readdisk(fs->root_offset,fs->RootEntCnt*32,rootp);
-	for(item = 0; item <fs->RootEntCnt;i++){
-	}
-}
-#endif
 
 static TCHAR * fwuImage = L"/FwuImage.bin";
 EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
@@ -126,8 +95,6 @@ EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 	FRESULT f_ret;
     FIL fp;
 	UINTN bsize; //getback size
-	CHAR8 ch[33];
-	UINT32 readb;
 
     ret = gpt_get_partition_by_label(PRIMARY_LABEL, &fs->parti, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
@@ -183,35 +150,9 @@ EFI_STATUS flash_fwupdate(VOID *data, UINTN size)
 	    debug(L"f_close error:%d", ret);
 		return ret;
 	}
-
-	debug(L"read again");
-    f_ret = f_open(&fp, fwuImage, FA_READ|FA_WRITE);
-	if( f_ret == FR_NO_FILE ) {
-	    debug(L"%s file is not existing", fwuImage);
-        f_ret = f_open(&fp, fwuImage,FA_READ|FA_WRITE|FA_CREATE_NEW);
-		if (f_ret != 0) {
-	        debug(L"f_create err:%d", f_ret);
-		    return ret;
-		}
-	} else if( f_ret == 0 ) {
-	    debug(L"open %s success", fwuImage);
-	} else {
-	    debug(L"f_open err:%d", f_ret);
-		return ret;
-	}
-	f_ret = f_read(&fp,ch,32,&readb);
-	ch[32] = 0;
-	if (!f_ret) {
-	    debug(L"read len %d",readb);  
-        debug_ascii(ch,32);
-	}else {
-	    debug(L"read error %d", f_ret);
-	}
-    f_close(&fp);
-
 	return ret;
 }
-EFI_STATUS fat_init() 
+EFI_STATUS fat_test() 
 {
     FATSYSTEM  *fs = &g_fatsystem;
     EFI_STATUS ret = EFI_SUCCESS;
